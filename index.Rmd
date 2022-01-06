@@ -1,0 +1,436 @@
+---
+title: "TOP Peliculas"
+subtitle: "ALBA ESTELA GARCIA (alesgar3@alumni.uv.es)" #- pongo tú nombre ahí para q aparezca más grande q el de la UV
+author: "Universitat de València"
+date: "Diciembre de 2021 (actualizado el `r format(Sys.time(), '%d-%m-%Y')`)"
+output:
+  html_document:
+    #css: "./assets/my_css_file.css"
+    theme: paper
+    highlight: textmate 
+    toc: true
+    toc_depth: 3 
+    toc_float: 
+      collapsed: true
+      smooth_scroll: true
+    self_contained: true
+    number_sections: false
+    df_print: kable
+    code_folding: show
+    code_download: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{css, echo = FALSE}
+.columns {display:flex;}
+h1.title {font-size: 50 px;color: #000000}
+h1 {color:#0a0a0a; font-size: 30px ;font-family: Arial Black}
+h2{color: #0a0a0a; font-size: 20px; font-family: Arial Black}
+body { background-color: #73effa}
+a {color: #010101;}
+.list-group-item.active, .list-group-item.active:focus, .list-group-item.active:hover {
+    z-index: 2;
+    color: ;
+    background-color: #c4342d;
+    border-color: palered;
+}
+.nav-pills > li.active > a, .nav-pills > li.active > a:hover, .nav-pills > li.active > 
+```
+
+
+```{r, warning=FALSE, echo=FALSE, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(reactable)
+library(tibble)
+library(plotly)
+library(tidyverse)
+
+library(hrbrthemes)
+library(patchwork)
+library(gganimate)
+library(wordcloud2)
+library(webshot)
+library(corrplot)
+library(sqldf)
+library(RColorBrewer) 
+library(kableExtra)
+library(ggThemeAssist)
+
+
+top10mil <- rio::import("./datos/TOP1000MOVIES.csv")
+top4mil <- rio::import("./datos/TOP4000MOVIES.csv")
+maspelis <- rio::import("./datos/IMDB.csv")
+aunmaspelis <- rio::import("./datos/movies_IMDB.csv")
+
+
+```
+
+
+
+
+
+```{r options-setup, include = FALSE}
+options(scipen = 999) #- para quitar la notación científica
+options("yaml.eval.expr" = TRUE) 
+```
+
+
+```{r klippy, echo = FALSE}
+klippy::klippy(position = c("top", "right")) #- remotes::install_github("rlesur/klippy")
+```
+
+
+<hr class="linea-black">
+
+<!-- El párrafo de abajo has de dejarlo casi igual, solo HAS de SUSTITUIR "perezp44" por tu usuario de Github-->
+Trabajo elaborado para la asignatura "Programación y manejo de datos en la era del Big Data" de la Universitat de València durante el curso 2021-2022. El repo del trabajo está [aquí](https://github.com/albaestela14/trabajo_BigData){target="_blank"}. 
+
+<!-- El párrafo de abajo has de dejarlo exactamente igual, NO HAS DE CAMBIAR NADA-->
+
+La página web de la asignatura y los trabajos de mis compañeros pueden verse [aquí](https://perezp44.github.io/intro-ds-21-22-web/07-trabajos.html){target="_blank"}.
+
+
+<hr class="linea-red">
+
+
+# **INTRODUCCIÓN**
+
+Hoy en día el cine se ha convertido en uno de los medios más populares para la difusión del arte, cultura y sobre todo entretenimiento. Es por eso que en este trabajo vamos a mostrar de una forma algo más detallada los aspectos más relevantes del cine en estos últimos años. Recorreremos a lo largo del proyecto las películas favoritas por la audiencia.
+Esperamos que este trabajo os sirva para incrementar vuestra cultura cineasta y os incite a ver alguna de las películas mencionadas.
+
+# **1.- PRIMERA PARTE *(10K PELICULAS)***
+
+## 1.1 DATOS A ANALIZAR 
+
+A continuación, vamos a mostrar una lista de las 10000 películas con las que vamos a trabajar inicialmente.
+
+
+```{r}
+peliculas <- top10mil %>%
+select(original_title)
+reactable(peliculas, defaultPageSize =  8,  paginationType = "jump", showPageSizeOptions =  TRUE , pageSizeOptions =  c ( 10 , 50 , 100, 150, 200, 260 ),defaultColDef = colDef(
+    align = "center",
+    minWidth = 70,
+    headerStyle = list(background = "#FFD700"),
+    filterable = TRUE),  highlight = TRUE, outlined = TRUE,
+    columns = list(
+  `Item` = colDef(style = function(value) {
+    if (value > 0) {
+      color <- "#F5C710"}
+      else {
+      color <- "#B22222"
+    }
+    list(color = color, fontWeight = "bold",background = "#CD2626")
+  })))
+```
+
+
+
+
+
+
+## 1.2 IDIOMA ESTRELLA
+
+En este apartado hemos querido representar cual es el idioma que predomina como lengua original en el paquete de datos con el que estamos trabajando. Claramente, de entre las diez mil películas, el idioma en la que la mayoría de ellas está es en Inglés (sin hacer distinción entre inglés británico o americano).
+
+```{r, warning=FALSE}
+topmil_pais <- top10mil %>%
+  group_by(original_language)  %>%  
+   mutate(numpelis = sum(NN=n())) %>%
+  distinct(original_language, numpelis) %>% 
+  arrange(desc(numpelis)) %>% 
+  filter(numpelis>200) %>% 
+  mutate(idioma = case_when(original_language == "en" ~ "Inglés", 
+                            original_language == "ja" ~ "Japonés" ,
+                            original_language == "es" ~ "Español",
+                            original_language == "fr" ~ "Francés"))
+  
+ggplot(topmil_pais, aes(x = idioma, y = numpelis, fill = idioma)) +  
+  geom_bar(stat="identity") +
+  scale_fill_manual(values = c("yellow", "white", "blue", "red") ) +
+  scale_y_continuous( breaks = seq(0, 8000, 1000),
+    limits = c(0, 8000))
+ 
+```
+
+
+## 1.3 TOP PELÍCULAS
+
+La siguiente gráfica es probablemente una de las más interesantes del trabajo, ya que básicamente nos muestra las 7 películas con más popularidad. Como podemos observar, el top 1 es **Venom: Let There Be Carnage**
+
+
+
+
+
+```{r, warning=FALSE}
+popularidad <- top10mil %>% 
+  arrange(desc(popularity)) %>% 
+  filter(popularity > 1300)
+ 
+
+  ggplot(popularidad, aes(x=original_title, y=popularity)) +
+    geom_bar(stat="identity") +
+    coord_flip() +
+    xlab("") +
+    theme_bw() +
+      scale_y_continuous( breaks = seq(0, 5500, 500),
+    limits = c(0, 5500))
+```
+
+![Venom: Let There Be Carnage](./imagenes/venom.jpg) 
+
+
+## 1.4 MÁXIMA VOTACIÓN
+
+A continuación mostraremos en un gráfico animado las cuatro películas con una votación más elevada.
+
+
+```{r, warning=FALSE}
+votos <- top10mil %>% 
+  arrange(desc(vote_average)) %>% 
+  filter(vote_average > 9.1) %>% 
+  filter(original_language %in% c("zh", "es", "fr"))
+
+votos$original_title <- iconv(votos$original_title, from = "UTF-8", to = "LATIN1")
+
+ggvotos <- ggplot(votos, aes(x = original_title, y = vote_average)) +
+  geom_point() +
+  geom_segment( aes(x = original_title, xend = original_title, y = 0, yend = vote_average))
+
+ggplotly(ggvotos)
+
+```
+
+
+![Días de CANGREBURGERS](./imagenes/bobesponja1.png) ![Ebola Zombies](./imagenes/ebola.jpg) 
+
+
+
+<hr class="linea-red">
+
+# **2.- SEGUNDA PARTE *(4K PELICULAS)***
+
+## 2.1 DATOS A ANALIZAR
+
+La idea ahora es mostrar algunos de los apartados vistos anteriormente pero cambiando el paquete de datos usando ahora uno con menos películas y algo más recientes.
+
+Mostramos a contiuación pues, los datos con los que vamos a trabajar ahora.
+
+```{r}
+names(top4mil)[names(top4mil) == 'Movie Title'] <- 'movietitle'
+
+
+
+peliculas4 <- top4mil %>%
+select(movietitle)
+reactable(peliculas4, defaultPageSize =  8,  paginationType = "jump", showPageSizeOptions =  TRUE , pageSizeOptions =  c ( 10 , 50 , 100, 150, 200, 260 ),defaultColDef = colDef(
+    align = "center",
+    minWidth = 70,
+    headerStyle = list(background = "#FFD700"),
+    filterable = TRUE),  highlight = TRUE, outlined = TRUE,
+    columns = list(
+  `Item` = colDef(style = function(value) {
+    if (value > 0) {
+      color <- "#F5C710"}
+      else {
+      color <- "#B22222"
+    }
+    list(color = color, fontWeight = "bold",background = "#CD2626")
+  })))
+
+```
+
+
+## 2.2 MAYOR PIB DOMÉSTICO
+
+En este otro punto ordenamos las películas de forma descendente, las películas que han generado mayor PIB nacional.
+
+
+```{r}
+names(top4mil)[names(top4mil) == 'Domestic Gross'] <- 'domesticPIB'
+
+PIB <- top4mil %>% 
+  arrange(desc(domesticPIB)) %>% 
+  filter(domesticPIB > 543638042)
+ 
+
+  ggplot(PIB, aes(x=movietitle, y=domesticPIB)) +
+    geom_bar(stat="identity") +
+    coord_flip() +
+    xlab("") +
+    theme_bw() +
+      scale_y_continuous( breaks = seq(0, 80000, 858373000),
+    limits = c(0, 8583730000))
+
+```
+
+
+
+
+
+Como vemos en el gráfico, la pelicula que más ha aportado al PIB doméstico ha sido **Star Wars Ep. VII: The Force Awakens**
+
+![Star Wars Ep. VII: The Force Awakens](./imagenes/starwars1.jpg)    
+
+
+## 2.3 MAYOR PIB MUNDIAL
+
+Muy parecido al apartado anterior, ahora las distinguimos pero mediante la aportación al PIB mundial.
+
+```{r}
+names(top4mil)[names(top4mil) == 'Worldwide Gross'] <- 'PIB'
+
+PIB <- top4mil %>% 
+  arrange(desc(PIB)) %>% 
+  filter(PIB > 	1654367425)
+ 
+
+  ggplot(PIB, aes(x=movietitle, y=PIB)) +
+    geom_bar(stat="identity") +
+    coord_flip() +
+    xlab("") +
+    theme_bw() +
+      scale_y_continuous( breaks = seq(0, 429186500, 858373000),
+    limits = c(0, 8583730000))
+
+
+```
+
+
+
+
+En este otro gráfico podemos observar que las películas que más PIB mundial han aportado han sido, **Avatar** y **Avengers: Endgame**, con números bastante similares.
+
+![Avatar](./imagenes/avatar1.jpg) ![Avengers: Endgame](./imagenes/avengers.jpg)
+
+
+
+# **3.- TERCERA PARTE *( MÁS PELIS)***
+
+
+## 3.1 DATOS A ANALIZAR
+
+Cambiamos ahora otra vez el conjunto de datos con el que vamos a trabajar y disminuimos el paquete a tan solo 118 películas. Pasaremos a analizar otros aspectos distintos de los anteriores.
+
+
+```{r}
+peliculas <- maspelis %>%
+select(Title)
+reactable(peliculas, defaultPageSize =  8,  paginationType = "jump", showPageSizeOptions =  TRUE , pageSizeOptions =  c ( 10 , 50 , 100, 150, 200, 260 ),defaultColDef = colDef(
+    align = "center",
+    minWidth = 70,
+    headerStyle = list(background = "#FFD700"),
+    filterable = TRUE),  highlight = TRUE, outlined = TRUE,
+    columns = list(
+  `Item` = colDef(style = function(value) {
+    if (value > 0) {
+      color <- "#F5C710"}
+      else {
+      color <- "#B22222"
+    }
+    list(color = color, fontWeight = "bold",background = "#CD2626")
+  })))
+```
+
+## 3.2 GÉNERO DE LAS PELÍCULAS
+
+```{r}
+categorias <- maspelis %>%
+  group_by(Genre1)  %>%  
+   mutate(numeroxgenero = sum(NN=n())) %>%
+  distinct(Genre1, numeroxgenero) %>% 
+  arrange(desc(numeroxgenero))  
+
+  
+ggplot(categorias, aes(x = Genre1, y = numeroxgenero, fill = Genre1)) +  
+  geom_bar(stat="identity") +
+  scale_fill_manual(values = c("pink", "black", "purple", "red", "yellow", "green", "brown", "grey") ) +
+  scale_y_continuous( breaks = seq(0, 29, 6),
+    limits = c(0, 29))
+
+```
+
+Hemos querido representar con este gráfico tan colorido, los géneros de las películas. Podríamos decir que hay muchas más películas de acción y drama que de los otros géneros. Es cierto que es aquí en este conjunto de datos que se da así, pero si cogiésemos todas las películas que existen, las proporciones serían parecidas ya que son los géneros que más venden y más gustan a la mayoría de la población.
+
+## 3.3 DURACIÓN PELÍCULAS
+
+```{r}
+duration <- maspelis %>%
+  group_by(Runtime) %>%
+  mutate(sameduration = sum(NN=n())) %>%
+  distinct(Runtime, sameduration, Title) %>%
+  filter(Runtime >0) %>%
+  filter(Runtime > 166) %>%
+  filter(Runtime < 9) %>%
+  arrange(desc(Runtime)) 
+ 
+
+
+
+
+
+
+grafduration <- ggplot (duration, aes(x = Title, y = Runtime)) + geom_bar(stat = "identity", fill = "steelblue")
+grafduration + labs(title = "Gráfico: Duración de las películas",
+       subtitle = "(diferenciando por año)",
+       x = "Películas",
+       y = "Duración",
+       color = "Especie de lirio")
+  
+  
+
+```
+
+A través de este gráfico vemos las películas que más duran. En este top 3 están:
+- Interstellar *(un peliculón, vale la pena la duración)*
+- El hobbit *(para gustos colores yo no la he visto)*
+- **El lobo de Wall Street**, bastante conocida y famosa, con una duración de 3horas.
+
+![The Wolf of Wall Street](./imagenes/lobo.jpg)
+
+
+
+# **4.- CUARTA PARTE *( AÚN MÁS PELIS)***
+
+Con este cuarto y último paquete de datos que vamos a utilizar en este trabajo, vamos a mostrar la recaudación bruta de las películas en los Estados Unidos.
+
+
+```{r}
+recaud <- aunmaspelis %>%
+  select(movie_name, us_grossMillions) %>%
+  head(us_grossMillions, n = 10)%>%
+  group_by(movie_name, us_grossMillions) %>%
+  arrange(desc(us_grossMillions))
+
+recaud
+
+
+wordcloud2(data=recaud, size=0.35)
+
+
+```
+
+En este gráfico interactivo se muestran las películas con más recaudación con un tamaño más grande y a medida que los títulos se hacen más pequeños significa que la recaudación es menor. Si mantenemos el cursor encima de los títulos de las películas nos dice exactamente el importe de la recaudación bruta. Destacaríamos sin duda **Avengers: End Game** y seguidamente **Joker**.
+
+
+
+
+
+
+
+
+#  BIBLIOGRAFÍA
+
+
+
+
+- [Enlace a la página web de la asignatura](https://perezp44.github.io/intro-ds-21-22-web/index.html)
+
+- [Enlace galeria de gráficos de ggplot2](https://www.r-graph-gallery.com/)
+
+- [Tutoriales de la asignatura](https://perezp44.github.io/intro-ds-21-22-web/04-tutoriales.html)
+
+- [Enlace a la página web de gganimate](https://gganimate.com/)
+
